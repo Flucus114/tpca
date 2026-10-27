@@ -1,0 +1,39 @@
+name: build
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extrair o zip e localizar o projeto
+        id: proj
+        run: |
+          mkdir -p _proj
+          unzip -o -q ./*.zip -d _proj
+          f=$(find _proj -name settings.gradle | head -n1)
+          if [ -z "$f" ]; then
+            echo "settings.gradle NAO encontrado no zip. Conteudo:"
+            find _proj -maxdepth 3 | head -50
+            exit 1
+          fi
+          d=$(dirname "$f")
+          echo "Projeto em: $d"
+          echo "dir=$d" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.1.1
+
+      - run: gradle build
+        working-directory: ${{ steps.proj.outputs.dir }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: classselector-jar
+          path: ${{ steps.proj.outputs.dir }}/build/libs/*.jar
